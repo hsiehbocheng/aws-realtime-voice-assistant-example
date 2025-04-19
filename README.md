@@ -17,7 +17,28 @@
 
 ## 設定步驟
 
-### 1. 創建虛擬環境
+### 使用uv設定專案（推薦）
+
+[uv](https://github.com/astral-sh/uv) 是一個快速的Python套件安裝和虛擬環境管理工具。
+
+```bash
+# 安裝uv (如果尚未安裝)
+pip install uv
+
+# 創建並啟動虛擬環境
+uv venv
+
+# 啟動虛擬環境
+# Windows
+.venv\Scripts\activate
+# macOS/Linux
+source .venv/bin/activate
+
+# 安裝依賴套件
+uv pip install -r requirements.txt
+```
+
+### 使用傳統的venv設定專案
 
 ```bash
 # 創建虛擬環境
@@ -33,7 +54,7 @@ source venv/bin/activate
 ### 2. 安裝依賴套件
 
 ```bash
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 ### 3. AWS設定
@@ -82,4 +103,19 @@ python3 main.py
 - **麥克風無法正常工作？**: 確保系統已正確設置音訊輸入設備，並授予應用程式訪問麥克風的權限。
 - **AWS認證錯誤？**: 確認您的AWS認證信息正確，且IAM用戶具有適當的服務訪問權限。
 - **依賴項安裝失敗？**: 嘗試逐個安裝依賴項，特別是PyAudio可能需要額外的系統庫支持。
+
+## 使用uv進行套件管理
+
+如果您想使用uv進行其他套件管理操作：
+
+```bash
+# 安裝單一套件
+uv pip install 套件名稱
+
+# 更新套件
+uv pip install --upgrade 套件名稱
+
+# 導出當前環境的依賴
+uv pip freeze > requirements.txt
+```
 
