@@ -27,22 +27,9 @@ class PollyClient:
         self.voice_id = voice_id
         self.speech_rate = str(speech_rate) if '%' in str(speech_rate) else f"{speech_rate}%"
         self.p = pyaudio.PyAudio()
-        self.stream = None
-        self.stop_event = asyncio.Event()
         
-    async def synthesize_speech(self, text, rate=None, stop_check=None):
-        """
-        合成並播放語音
-        
-        Args:
-            text: 要播放的文字
-            rate: 語音速率
-            stop_check: 一個可等待的對象，用於檢查是否需要停止播放
-        """
+    async def synthesize_speech(self, text, rate=None):
         try:
-            # 重置停止事件
-            self.stop_event.clear()
-            
             speech_rate = rate or self.speech_rate
             
             ssml_text = f"""
@@ -66,50 +53,23 @@ class PollyClient:
                 audio_data = response['AudioStream'].read()
                 
                 # 建立 PyAudio 串流
-                self.stream = self.p.open(
+                stream = self.p.open(
                     format=self.p.get_format_from_width(2),  # 16-bit PCM
                     channels=1,
                     rate=16000,  # Amazon Polly 默認採樣率
                     output=True
                 )
                 
-                # 將音訊數據分成多個塊來播放，這樣我們可以檢查是否需要停止
-                chunk_size = 4096  # 可以調整塊大小
-                for i in range(0, len(audio_data), chunk_size):
-                    # 檢查是否設置了停止事件
-                    if self.stop_event.is_set():
-                        print("\n語音播放被中斷")
-                        break
-                    
-                    # 如果提供了外部停止檢查，也檢查它
-                    if stop_check and stop_check.is_set():
-                        print("\n檢測到用戶插話，停止播放")
-                        break
-                        
-                    # 播放當前塊
-                    chunk = audio_data[i:i+chunk_size]
-                    self.stream.write(chunk)
-                    
-                    # 為其他協程讓出控制權
-                    await asyncio.sleep(0)
-
-                # 停止並關閉流
-                self.stop_stream()
+                # 播放音訊
+                stream.write(audio_data)
+                
+                # 等待播放完成
+                stream.stop_stream()
+                stream.close()
 
         except ClientError as e:
             print(f"Error synthesizing speech: {e}")
             return None
-    
-    def stop_stream(self):
-        """停止當前的音訊流"""
-        if self.stream:
-            self.stream.stop_stream()
-            self.stream.close()
-            self.stream = None
-            
-    def stop_playback(self):
-        """設置停止事件來中斷播放"""
-        self.stop_event.set()
         
     def __del__(self):
         if hasattr(self, 'p'):

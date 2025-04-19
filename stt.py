@@ -14,22 +14,14 @@ load_dotenv()
 aws_region = os.getenv("AWS_REGION")
 
 class TranscriptHandler(TranscriptResultStreamHandler):
-    def __init__(self, output_stream, transcript_callback=None, speech_detected_callback=None):
+    def __init__(self, output_stream, transcript_callback=None):
         super().__init__(output_stream)
         self.transcript_callback = transcript_callback
-        self.speech_detected_callback = speech_detected_callback
     
     async def handle_transcript_event(self, transcript_event: TranscriptEvent):
         try:
             results = transcript_event.transcript.results
             for result in results:
-                # 對於任何音訊結果（即使是部分結果），也調用語音檢測回調
-                if self.speech_detected_callback and results:
-                    try:
-                        await self.speech_detected_callback()
-                    except Exception as e:
-                        print(f"Speech Detection Callback Error: {e}")
-                
                 if not result.is_partial:
                     for alt in result.alternatives:
                         transcript = alt.transcript
@@ -51,8 +43,6 @@ class TranscribeClient:
         self.media_encoding = media_encoding
         self.p = None
         self.stream = None
-        self.is_speaking = False
-        self.speech_detected_event = asyncio.Event()
         
                 
     def get_default_input_device(self):
@@ -118,16 +108,6 @@ class TranscribeClient:
         async for chunk in self.mic_stream():
             await stream.input_stream.send_audio_event(audio_chunk=chunk)
         await stream.input_stream.end_stream()
-    
-    async def on_speech_detected(self):
-        """當檢測到語音時，更新狀態並設置事件"""
-        self.is_speaking = True
-        self.speech_detected_event.set()
-        
-    def reset_speech_detection(self):
-        """重置語音檢測狀態"""
-        self.is_speaking = False
-        self.speech_detected_event.clear()
         
     async def start_transcription(self, transcript_callback=None):
         client = TranscribeStreamingClient(region=self.region)
@@ -139,11 +119,7 @@ class TranscribeClient:
             # language_options=["zh-TW", "en-US"],
         )
         
-        handler = TranscriptHandler(
-            stream.output_stream, 
-            transcript_callback, 
-            self.on_speech_detected
-        )
+        handler = TranscriptHandler(stream.output_stream, transcript_callback)
         await asyncio.gather(self.write_chunks(stream), handler.handle_events())
                 
 if __name__ == "__main__":

@@ -41,51 +41,8 @@ class BedrockLlmClient:
         )
         
     async def generate_content(self, user_message):
-        """生成回應內容"""
         response = await self.chain.ainvoke({"input": user_message})
         return response['chat_history'][-1].content
-        
-    async def generate_content_interruptible(self, user_message, interrupt_check=None):
-        """
-        可中斷的生成內容方法
-        
-        Args:
-            user_message: 用戶訊息
-            interrupt_check: 一個可等待的對象，用於檢查是否需要中斷生成
-            
-        Returns:
-            生成的回應內容，如果被中斷則可能不完整
-        """
-        # 設置一個任務來檢查中斷
-        interrupt_task = None
-        if interrupt_check:
-            interrupt_task = asyncio.create_task(interrupt_check.wait())
-        
-        # 開始生成回應
-        content_task = asyncio.create_task(self.generate_content(user_message))
-        
-        # 等待其中一個任務完成
-        done, pending = await asyncio.wait(
-            [content_task] + ([interrupt_task] if interrupt_task else []),
-            return_when=asyncio.FIRST_COMPLETED
-        )
-        
-        # 如果中斷任務完成，取消內容生成任務並返回部分內容
-        if interrupt_task in done:
-            content_task.cancel()
-            try:
-                await content_task
-            except asyncio.CancelledError:
-                print("\n內容生成被中斷")
-                # 返回一個預設的回應，表示我們稍後將繼續
-                return "我明白您想插話。請繼續說。"
-        else:
-            # 如果內容生成完成，取消中斷檢查任務
-            if interrupt_task and not interrupt_task.done():
-                interrupt_task.cancel()
-            
-            # 獲取生成的回應
-            return await content_task
     
 if __name__ == "__main__":
     
